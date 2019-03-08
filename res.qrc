@@ -1,0 +1,13 @@
+<!DOCTYPE RCC><RCC version="1.0"> 
+<qresource prefix="/img">
+  <file alias="profile.jpg">./img/profile.jpg</file>
+  <file alias="close.png">./img/close.png</file>
+  <file alias="hide.png">./img/hide.png</file>
+  <file alias="image.png">./img/image.png</file>
+  <file alias="icon.png">./img/icon.png</file>
+  <file alias="search.png">./img/search.png</file>
+</qresource>
+<qresource prefix="/qml">
+  <file alias="message-view.qml">./qml/message-view.qml</file>
+</qresource>
+</RCC>
