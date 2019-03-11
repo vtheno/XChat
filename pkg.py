@@ -25,7 +25,7 @@ def calcOffSet(string, limit: int):
     return ret
 
 def autoWrap(text):
-    strings = text.split("\n")
+    strings = (i for i in text.split("\n") if i)
     buff = [ ]
     for s in strings:
         l = length(s)
@@ -107,4 +107,4 @@ def getAllTypeMsg(html):
             print( msg_list )
     return msg_list
 
-__all__ = ["autoWrap", "getAllTypeMsg"]
+__all__ = ["length", "autoWrap", "getAllTypeMsg"]

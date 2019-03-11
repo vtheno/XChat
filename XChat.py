@@ -60,9 +60,25 @@ QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical
     border-radius:4px;
 }
 """
+class SearchInputWidget(QtWidgets.QLineEdit):
+    def __init__(self, handler, parent=None):
+        QtWidgets.QLineEdit.__init__(self, parent)
+        self.setStyleSheet("""
+        QLineEdit{
+            padding-left: 24px; 
+            selection-background-color: gray;
+        }""")
+        self.handler = handler
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Return:
+            text = self.text()
+            self.handler(text, ":/img/profile.jpg")
+            self.clear()
+        QtWidgets.QLineEdit.keyPressEvent(self, e)
+
 class SearchWidget(QtWidgets.QWidget):
-    def __init__(self,parent = None):
-        super(SearchWidget, self).__init__(parent)
+    def __init__(self,handler, parent = None):
+        QtWidgets.QWidget.__init__(self, parent)
         self.setStyleSheet("""
         margin: 0px;
         border: 0px;
@@ -72,30 +88,25 @@ class SearchWidget(QtWidgets.QWidget):
 
         self.setMaximumHeight(24)
         self.setMinimumHeight(24)
-        qinput = QtWidgets.QLineEdit()
-        qinput.setGeometry(0, 0, 215, 24)
-        qinput.setStyleSheet("""
-        QLineEdit{
-            padding-left: 24px; 
-            selection-background-color: gray;
-        }""")
-        qinput.setParent(self)
-        qinput.setContextMenuPolicy(Qt.NoContextMenu)
-
-        profile = QtWidgets.QLabel()
-        profile.setGeometry(QtCore.QRect(0, 0, 24, 24))
-        profile.setStyleSheet("""
+        self.input = SearchInputWidget(handler, self)
+        self.input.setGeometry(0, 0, 215, 24)
+        self.input.setContextMenuPolicy(Qt.NoContextMenu)
+        
+        # qinput.keyPressEvent = keyPressEvent
+        icon = QtWidgets.QLabel()
+        icon.setGeometry(QtCore.QRect(0, 0, 24, 24))
+        icon.setStyleSheet("""
         QLabel{
             background-image: url(:/img/search.png);
             background-repeat: no-repeat;
             background-position: center;
         }
         """)
-        profile.setParent(qinput)
+        icon.setParent(self.input)
 
 class UserItemWidget(QtWidgets.QWidget):
     def __init__(self,parent = None, username="vtheno", profile=":/img/profile.jpg"):
-        super(UserItemWidget, self).__init__(parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.setStyleSheet("""
         background-color: transparent;
         """)
@@ -144,14 +155,14 @@ class UserItemWidget(QtWidgets.QWidget):
         }}
         """)
 
-class MessageInputWidget(QtWidgets.QPlainTextEdit):#.QTextEdit):
+class MessageInputWidget(QtWidgets.QTextEdit):#.QTextEdit):
     def __init__(self, handler_message, parent=None):
-        super(QtWidgets.QPlainTextEdit, self).__init__(parent)
+        QtWidgets.QTextEdit.__init__(self, parent)
         self.handler_message = handler_message
         self.setMaximumHeight(200)
         self.setMinimumHeight(200)
         self.setStyleSheet("""
-        QPlainTextEdit {
+        QTextEdit {
             border: none;
             border-radius: 5px;
             background-color: #F5F5F5;
@@ -159,20 +170,19 @@ class MessageInputWidget(QtWidgets.QPlainTextEdit):#.QTextEdit):
             padding-top: 32px;
         }
         """)
+        self.verticalScrollBar().setStyleSheet(style)
+        self.setAcceptRichText(False)
+        
     def keyPressEvent(self, e):
         if (e.key() == Qt.Key_Return) and (e.modifiers() == Qt.ControlModifier):
-            # print(dir(self))
-            # html = self.toHtml()
-            # msg = pkg.getAllTypeMsg(html)
-            # print( msg )
             msg = self.toPlainText()
-            self.handler_message(msg)
-            self.clear()
-        super(MessageInputWidget, self).keyPressEvent(e)
+            if self.handler_message(msg):
+                self.clear()
+        QtWidgets.QTextEdit.keyPressEvent(self, e)
 
     def focusInEvent(self, e):
         self.setStyleSheet("""
-        QPlainTextEdit {
+        QTextEdit {
             border: none;
             border-radius: 5px;
             background-color: #FFFFFF;
@@ -181,7 +191,7 @@ class MessageInputWidget(QtWidgets.QPlainTextEdit):#.QTextEdit):
             padding-top: 32px;
         }
         """)
-        super(MessageInputWidget, self).focusInEvent(e)
+        QtWidgets.QTextEdit.focusInEvent(self, e)
         effect = QtWidgets.QGraphicsDropShadowEffect()
         effect.setBlurRadius(8)
         effect.setColor(QtGui.QColor("lightgray"))
@@ -190,7 +200,7 @@ class MessageInputWidget(QtWidgets.QPlainTextEdit):#.QTextEdit):
 
     def focusOutEvent(self, e):
         self.setStyleSheet("""
-        QPlainTextEdit {
+        QTextEdit {
             border: none;
             border-radius: 5px;
             background-color: #F5F5F5;
@@ -199,13 +209,25 @@ class MessageInputWidget(QtWidgets.QPlainTextEdit):#.QTextEdit):
             padding-top: 32px;
         }
         """)
-        super(MessageInputWidget, self).focusOutEvent(e)
+        QtWidgets.QTextEdit.focusOutEvent(self, e)
         self.parent().setGraphicsEffect(None)
 
 class MessagePanelWidget(QtWidgets.QWidget):
     def __init__(self, handler_message):
         QtWidgets.QWidget.__init__(self)
+        self.max_len = 1500
+        self.current_len = 0
         self.init(handler_message)
+    def textChanged(self):
+        # print("changed")
+        temp = self.message_input.toPlainText()
+        self.current_len = len(temp)
+        if self.current_len > self.max_len:
+            self.message_input.setPlainText(temp[0:self.max_len])
+            self.message_input.moveCursor(QtGui.QTextCursor.End, QtGui.QTextCursor.MoveAnchor)
+        else:
+            text = f"{self.current_len}/{self.max_len}"
+            self.size_label.setText(text)
 
     def init(self, handler_message):
         qbtn_image = QtWidgets.QPushButton()
@@ -221,17 +243,23 @@ class MessagePanelWidget(QtWidgets.QWidget):
         """)
         qbtn_image.setGeometry(0, 0, 32, 32)
         qbtn_image.setFocusPolicy(Qt.NoFocus)
-        message_input = MessageInputWidget(handler_message, self)
-        message_input.setGeometry(0, 0, 750, 200)
+        self.size_label = QtWidgets.QLabel()
+        self.size_label.setText(f"{self.current_len}/{self.max_len}")
+        self.size_label.setGeometry(670, 0, 70, 32)
+        self.size_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.message_input = MessageInputWidget(handler_message, self)
+        self.message_input.setGeometry(0, 0, 750, 200)
         # message_input.setFocusPolicy(Qt.NoFocus)
-        message_input.setContextMenuPolicy(Qt.NoContextMenu)
-        qbtn_image.setParent(message_input)
+        self.message_input.setContextMenuPolicy(Qt.NoContextMenu)
+        self.message_input.textChanged.connect(self.textChanged)
+        qbtn_image.setParent(self.message_input)
+        self.size_label.setParent(self.message_input)
 
 class MFrame(QtWidgets.QWidget):
     def __init__(self, window: QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self)
         self.window = window
-        self.resize(1060,720)
+        self.resize(1060, 820)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setObjectName("MFrame")
         self.setMouseTracking(True)
@@ -245,7 +273,7 @@ class MFrame(QtWidgets.QWidget):
         self.init()
 
     def paintEvent(self, e):
-        super(MFrame, self).paintEvent(e)
+        QtWidgets.QWidget.paintEvent(self, e)
         # if parent windows WA_TranslucentBackground
         # then repaint frame with style
         opt = QtWidgets.QStyleOption()
@@ -253,10 +281,6 @@ class MFrame(QtWidgets.QWidget):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         self.style().drawPrimitive(QtWidgets.QStyle.PE_Widget, opt, painter, self)
-        # very important
-        # print( dir(evt) )
-        # self.message_view.update()
-        # self.update()
 
     def init(self):
         qbtn_close = QtWidgets.QPushButton(self)
@@ -293,7 +317,7 @@ class MFrame(QtWidgets.QWidget):
         qbtn_hide.clicked.connect(self.window.hide)
         # user list
         listWidget = QtWidgets.QListWidget(self)
-        listWidget.setGeometry(32, 60, 215, 600)
+        listWidget.setGeometry(32, 60, 215, 700)
         listWidget.setStyleSheet("""
         QListWidget::item:selected:!active {
             border: 0px;
@@ -313,25 +337,48 @@ class MFrame(QtWidgets.QWidget):
         """)
         # listWidget.setIconSize(QtCore.QSize(50, 200))
         listWidget.verticalScrollBar().setStyleSheet(style)
-        # listWidget.itemClicked.connect(lambda item: print(item.type()))
-        listWidget.itemPressed.connect(self.listItemAction)
+
+        #listWidget.itemClicked.connect(self.listItemAction)
+        listWidget.currentItemChanged.connect(self.listItemCurrentChanged)
         listWidget.setFocusPolicy(Qt.NoFocus) # hidden select border
-        for i in range(20):
+
+        def appendUserItem(username, profile):
             item = QtWidgets.QListWidgetItem()
-            # item.setIcon(QtGui.QIcon("img/profile.jpg"))
             item.setSizeHint(QtCore.QSize(200, 50))
-            user = UserItemWidget(listWidget)
+            user = UserItemWidget(listWidget, username, profile)
+            # print( dir(item) )
+            # print( dir(user) )
+            def remove():
+                print('remove')
+                # item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
+                item.setSelected(False)
+                listWidget.takeItem(listWidget.row(item))
+                self.message_view.msg_clear()
+
+            def rightMenuShow(_point):
+                menu = QtWidgets.QMenu(user)
+                # showAction = QtWidgets.QAction('&Show', menu, triggered=lambda :print('s'))
+                # hideAction = QtWidgets.QAction('&Hide', menu, triggered=lambda :print('h'))
+                quitAction = QtWidgets.QAction('&Remove', menu, triggered=remove)
+                # menu.addAction(showAction)
+                # menu.addAction(hideAction)
+                menu.addSeparator()
+                menu.addAction(quitAction)
+                point = QtGui.QCursor.pos()
+                # print( point )
+                menu.exec_(point)
+            
+            user.setContextMenuPolicy(Qt.CustomContextMenu)
+            user.customContextMenuRequested[QtCore.QPoint].connect(rightMenuShow)
             item.setData(0, user)
             listWidget.addItem(item)
             listWidget.setItemWidget(item, user)
 
-        search_bar = SearchWidget(self)
+        search_bar = SearchWidget(appendUserItem, self)
         search_bar.setGeometry(32, 32, 215, 20)
 
-
-
         self.message_view = MessageViewWidget(self)
-        self.message_view.setGeometry(255, 35, 750, 420)
+        self.message_view.setGeometry(255, 35, 750, 520)
 
         """
         # old version
@@ -344,38 +391,44 @@ class MFrame(QtWidgets.QWidget):
                     if typ == 'img':
                         img_path = msg #.replace('file:///', '')
                         print( img_path )
-                        channel = MessageItem(img_path, True, True)
+                        channel = MessageItem(img_path, True, False)
                         self.message_view.msgStack.appendChannel(channel)
                     elif typ == 'txt':
                         msg = pkg.autoWrap(msg)
                         print( repr(msg) )
-                        channel = MessageItem(msg, True, False)
+                        channel = MessageItem(msg, True, True)
                         self.message_view.msgStack.appendChannel(channel)
         """
         def handler_message( data: str ):
-            msg = pkg.autoWrap(data)
-            print( msg.split("\n") )
-            channel = MessageItem(msg, True, False)
-            self.message_view.msgStack.appendChannel(channel)
+            
+            if self.message_view.cfg.title:
+                temp = data.strip("\n")
+                if temp:
+                    msg = pkg.autoWrap(data)
+                    # print( msg.split("\n") )
+                    channel = MessageItem(msg, True, True)
+                    self.message_view.msgStack.appendChannel(channel)
+                return True
+            return False
 
         message_panel = MessagePanelWidget(handler_message)
         message_panel.setParent(self)
-        message_panel.setGeometry(255, 460, 750, 200)
+        message_panel.setGeometry(255, 560, 750, 200)
         
-    def listItemAction(self, item: QtWidgets.QListWidgetItem):
-        # print( item )
-        username = item.data(0).user_config["username"]
-        self.message_view.cfg.changeTitle(f"chat with: {username}")
-        # self.message_view.update()
-        # item.data(0).update_config(
-        #     username="new user",
-        #     profile="img/profile-1.jpg"
-        # )
+    def listItemCurrentChanged(self, currentItem, previousItem):
+        self.message_view.msgStack.clear()
+        # print( 'changed' )
+        if currentItem:
+            # print( currentItem, previousItem )
+            currentItem.setSelected(True)
+            username = currentItem.data(0).user_config["username"]
+            print( 'connect to ', username)
+            self.message_view.cfg.changeTitle(f"{username}")
 
 class MWindow(QtWidgets.QWidget):
     def __init__(self, parent=None):
-        super(MWindow,self).__init__(parent)
-        self.resize(1060, 720)
+        QtWidgets.QWidget.__init__(self, parent)
+        self.resize(1060, 820)
         layout = QtWidgets.QHBoxLayout()
         self.setObjectName('MWindow')
         
@@ -449,25 +502,38 @@ class MWindow(QtWidgets.QWidget):
 class ViewConfig(QtCore.QObject):
     #textChanged = QtCore.pyqtSignal(str)
     modifyTitle = QtCore.pyqtSignal(str, arguments=["title"])
-    def __init__(self, parent):
+    titleChange = QtCore.pyqtSignal(str)
+    def __init__(self, parent, title=''):
         QtCore.QObject.__init__(self)
         # self.parent = parent
         # self.modifyTitle.connect(self.changeTitle)
+        self._title = title
+    @QtCore.pyqtProperty(str, notify=titleChange)
+    def title(self):
+        return self._title
+
+    @title.setter
+    def title(self, title):
+        if title != self._title:
+            self._title = title
+            self.modifyTitle.emit(title)
+    
     @QtCore.pyqtSlot(str)
     def changeTitle(self, title: str):
-        self.modifyTitle.emit(title)
-        # self.parent.update()
-
+        if title != self._title:
+            self._title = title
+            self.modifyTitle.emit(title)
+    
 class MessageItem(QtCore.QObject):
     msgChanged = QtCore.pyqtSignal()
     flagChanged = QtCore.pyqtSignal()
     typeChanged = QtCore.pyqtSignal()
 
-    def __init__(self, msg='', selfSend=False, msgType=False, *args, **kwargs):
+    def __init__(self, msg='', selfSend=False, textType=True, *args, **kwargs):
         QtCore.QObject.__init__(self, *args, **kwargs)
         self._msg = msg
         self._selfSend = selfSend
-        self._msgType = msgType
+        self._textType = textType
     @QtCore.pyqtProperty('QString', notify=msgChanged)
     def msg(self):
         return self._msg
@@ -477,12 +543,12 @@ class MessageItem(QtCore.QObject):
             self._msg = msg
             self.msgChanged.emit()
     @QtCore.pyqtProperty(bool, notify=typeChanged)
-    def msgType(self):
-        return self._msgType
-    @msgType.setter
-    def msgType(self, msgType):
-        if msgType != self._msgType:
-            self._msgType = msgType
+    def textType(self):
+        return self._textType
+    @textType.setter
+    def textType(self, textType: bool):
+        if textType != self._textType:
+            self._textType = textType
             self.typeChanged.emit()
 
     @QtCore.pyqtProperty(bool, notify=flagChanged)
@@ -500,10 +566,9 @@ class MessageStack(QtCore.QObject):
     def __init__(self, parent, *args, **kwargs):
         QtCore.QObject.__init__(self, *args, **kwargs)
         # self.parent = parent
-        self._items = [
-            MessageItem('hello'),
-            MessageItem('hi')
-        ]
+        self._items = []
+        # MessageItem('hello', False, False),
+        # MessageItem('hi', False, False)
 
     @QtCore.pyqtProperty(QtQml.QQmlListProperty, notify=itemsChanged)
     def items(self):
@@ -519,7 +584,17 @@ class MessageStack(QtCore.QObject):
     def appendChannel(self, channel):
         self._items.append(channel)
         self.itemsChanged.emit()
-        # self.parent.update()
+    def clear(self):
+        self._items = []
+        self.itemsChanged.emit()
+    def load_with_list(self, maps: [dict]):
+        # {}
+        for item in maps:
+            msg = item["msg"]
+            selfSend = item["self"]
+            textType = item["textType"]
+            
+            MessageItem(msg, selfSend, textType)
 
 class MessageViewWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -546,7 +621,9 @@ class MessageViewWidget(QtWidgets.QWidget):
         # print( rootItem.objectName() )
         # print( help(rootItem.findChild) )
         # for item in rootItem.childItems():
-        
+    def msg_clear(self):
+        self.cfg.changeTitle('')
+        self.msgStack.clear()
     
 if __name__=="__main__":
  
